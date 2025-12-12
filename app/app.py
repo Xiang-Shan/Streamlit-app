@@ -44,25 +44,35 @@ def load_data():
     """Load the French Motor Insurance dataset from NPZ files in GitHub repository"""
     
     import json
-    
+
+    data_dir_candidates = [
+        Path(__file__).resolve().parent,
+        Path.cwd(),
+    ]
+
     try:
         with st.spinner("📂 Loading dataset from repository..."):
-            # Load data directly from NPZ files (GitHub deployment)
             st.sidebar.info('📦 Loading from NPZ files...')
-            
-            # Load metadata
-            with open('data_metadata.json', 'r') as f:
+
+            data_dir = next((candidate for candidate in data_dir_candidates if (candidate / 'data_metadata.json').exists()), None)
+            if data_dir is None:
+                raise FileNotFoundError('data_metadata.json')
+
+            metadata_path = data_dir / 'data_metadata.json'
+            mappings_path = data_dir / 'category_mappings.json'
+            numeric_path = data_dir / 'data_numeric.npz'
+            categorical_path = data_dir / 'data_categorical.npz'
+
+            with open(metadata_path, 'r') as f:
                 metadata = json.load(f)
-            
-            with open('category_mappings.json', 'r') as f:
+
+            with open(mappings_path, 'r') as f:
                 category_mappings = json.load(f)
-            
-            # Load numeric data from compressed format
-            numeric_data = np.load('data_numeric.npz')['data']
+
+            numeric_data = np.load(numeric_path)['data']
             numeric_df = pd.DataFrame(numeric_data, columns=metadata['numeric_columns'])
-            
-            # Load categorical data from compressed format
-            categorical_data = np.load('data_categorical.npz')['data']
+
+            categorical_data = np.load(categorical_path)['data']
             categorical_df = pd.DataFrame(categorical_data, columns=metadata['categorical_columns'])
             
             # Decode categorical data
