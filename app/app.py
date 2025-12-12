@@ -41,36 +41,84 @@ st.markdown('''
 # Data loading function
 @st.cache_data
 def load_data():
-    """Load the French Motor Insurance dataset from Kaggle using kagglehub"""
+    """Load the French Motor Insurance dataset from NPY files"""
+    
+    import json
     
     try:
-        with st.spinner("📥 Downloading dataset from Kaggle..."):
-            # Download using kagglehub - no API credentials needed!
-            import kagglehub
-            path = kagglehub.dataset_download("xiangshan1989/french-motor-insurance")
+        with st.spinner("📂 Loading dataset..."):
+            # Check if NPZ files exist (GitHub deployment)
+            if Path('data_numeric.npz').exists() and Path('data_categorical.npz').exists():
+                st.sidebar.info('📦 Loading from compressed NPZ files...')
+                
+                # Load metadata
+                with open('data_metadata.json', 'r') as f:
+                    metadata = json.load(f)
+                
+                with open('category_mappings.json', 'r') as f:
+                    category_mappings = json.load(f)
+                
+                # Load numeric data from compressed format
+                numeric_data = np.load('data_numeric.npz')['data']
+                numeric_df = pd.DataFrame(numeric_data, columns=metadata['numeric_columns'])
+                
+                # Load categorical data from compressed format
+                categorical_data = np.load('data_categorical.npz')['data']
+                categorical_df = pd.DataFrame(categorical_data, columns=metadata['categorical_columns'])
+                
+                # Decode categorical data
+                for col in metadata['categorical_columns']:
+                    col_idx = metadata['categorical_columns'].index(col)
+                    codes = categorical_data[:, col_idx]
+                    categories = category_mappings[col]
+                    categorical_df[col] = pd.Categorical.from_codes(codes, categories=categories)
+                
+                # Combine dataframes in original column order
+                df = pd.DataFrame()
+                for col in metadata['columns']:
+                    if col in numeric_df.columns:
+                        df[col] = numeric_df[col]
+                    elif col in categorical_df.columns:
+                        df[col] = categorical_df[col]
+                
+                st.sidebar.success(f"✅ Loaded {len(df):,} policies!")
+                return df
             
-            # Load the CSV file
-            from pathlib import Path
-            csv_path = Path(path) / "GLM_example_with_GLMs_Predictions.csv"
+            # Fallback: Try loading CSV from local
+            elif Path('GLM_example_with_GLMs_Predictions.csv').exists():
+                st.sidebar.info('📂 Loading from CSV...')
+                df = pd.read_csv('GLM_example_with_GLMs_Predictions.csv')
+                st.sidebar.success("✅ Dataset loaded successfully!")
+                return df
             
-            if not csv_path.exists():
-                st.error(f"⚠️ CSV file not found at: {csv_path}")
-                st.info("Available files in downloaded dataset:")
-                for file in Path(path).glob("*"):
-                    st.write(f"  - {file.name}")
+            else:
+                st.error("""
+                ⚠️ **Dataset files not found!**
+                
+                Expected files:
+                - data_numeric.npz
+                - data_categorical.npz
+                - data_metadata.json
+                - category_mappings.json
+                
+                OR
+                
+                - GLM_example_with_GLMs_Predictions.csv
+                
+                **Setup Instructions:**
+                1. Run: python convert_to_npy.py
+                2. Add NPY files to your repository
+                3. Deploy to Streamlit Cloud
+                """)
                 st.stop()
-            
-            df = pd.read_csv(csv_path)
-            st.sidebar.success("✅ Dataset loaded successfully!")
-            return df
             
     except Exception as e:
         st.error(f"⚠️ Error loading data: {e}")
         st.info("""
         **Troubleshooting:**
-        1. Ensure internet connection is stable
-        2. Dataset URL: xiangshan1989/french-motor-insurance
-        3. Try refreshing the page
+        1. Ensure data files are in the same directory as app.py
+        2. Check that all required files exist
+        3. Try running: python test_npy_load.py
         """)
         st.stop()
 # Calculate metrics
