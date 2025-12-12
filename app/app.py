@@ -41,84 +41,75 @@ st.markdown('''
 # Data loading function
 @st.cache_data
 def load_data():
-    """Load the French Motor Insurance dataset from NPY files"""
+    """Load the French Motor Insurance dataset from NPZ files in GitHub repository"""
     
     import json
     
     try:
-        with st.spinner("📂 Loading dataset..."):
-            # Check if NPZ files exist (GitHub deployment)
-            if Path('data_numeric.npz').exists() and Path('data_categorical.npz').exists():
-                st.sidebar.info('📦 Loading from compressed NPZ files...')
-                
-                # Load metadata
-                with open('data_metadata.json', 'r') as f:
-                    metadata = json.load(f)
-                
-                with open('category_mappings.json', 'r') as f:
-                    category_mappings = json.load(f)
-                
-                # Load numeric data from compressed format
-                numeric_data = np.load('data_numeric.npz')['data']
-                numeric_df = pd.DataFrame(numeric_data, columns=metadata['numeric_columns'])
-                
-                # Load categorical data from compressed format
-                categorical_data = np.load('data_categorical.npz')['data']
-                categorical_df = pd.DataFrame(categorical_data, columns=metadata['categorical_columns'])
-                
-                # Decode categorical data
-                for col in metadata['categorical_columns']:
-                    col_idx = metadata['categorical_columns'].index(col)
-                    codes = categorical_data[:, col_idx]
-                    categories = category_mappings[col]
-                    categorical_df[col] = pd.Categorical.from_codes(codes, categories=categories)
-                
-                # Combine dataframes in original column order
-                df = pd.DataFrame()
-                for col in metadata['columns']:
-                    if col in numeric_df.columns:
-                        df[col] = numeric_df[col]
-                    elif col in categorical_df.columns:
-                        df[col] = categorical_df[col]
-                
-                st.sidebar.success(f"✅ Loaded {len(df):,} policies!")
-                return df
+        with st.spinner("📂 Loading dataset from repository..."):
+            # Load data directly from NPZ files (GitHub deployment)
+            st.sidebar.info('📦 Loading from NPZ files...')
             
-            # Fallback: Try loading CSV from local
-            elif Path('GLM_example_with_GLMs_Predictions.csv').exists():
-                st.sidebar.info('📂 Loading from CSV...')
-                df = pd.read_csv('GLM_example_with_GLMs_Predictions.csv')
-                st.sidebar.success("✅ Dataset loaded successfully!")
-                return df
+            # Load metadata
+            with open('data_metadata.json', 'r') as f:
+                metadata = json.load(f)
             
-            else:
-                st.error("""
-                ⚠️ **Dataset files not found!**
-                
-                Expected files:
-                - data_numeric.npz
-                - data_categorical.npz
-                - data_metadata.json
-                - category_mappings.json
-                
-                OR
-                
-                - GLM_example_with_GLMs_Predictions.csv
-                
-                **Setup Instructions:**
-                1. Run: python convert_to_npy.py
-                2. Add NPY files to your repository
-                3. Deploy to Streamlit Cloud
-                """)
-                st.stop()
+            with open('category_mappings.json', 'r') as f:
+                category_mappings = json.load(f)
             
+            # Load numeric data from compressed format
+            numeric_data = np.load('data_numeric.npz')['data']
+            numeric_df = pd.DataFrame(numeric_data, columns=metadata['numeric_columns'])
+            
+            # Load categorical data from compressed format
+            categorical_data = np.load('data_categorical.npz')['data']
+            categorical_df = pd.DataFrame(categorical_data, columns=metadata['categorical_columns'])
+            
+            # Decode categorical data
+            for col in metadata['categorical_columns']:
+                col_idx = metadata['categorical_columns'].index(col)
+                codes = categorical_data[:, col_idx]
+                categories = category_mappings[col]
+                categorical_df[col] = pd.Categorical.from_codes(codes, categories=categories)
+            
+            # Combine dataframes in original column order
+            df = pd.DataFrame()
+            for col in metadata['columns']:
+                if col in numeric_df.columns:
+                    df[col] = numeric_df[col]
+                elif col in categorical_df.columns:
+                    df[col] = categorical_df[col]
+            
+            st.sidebar.success(f"✅ Loaded {len(df):,} policies from repository!")
+            return df
+            
+    except FileNotFoundError as e:
+        st.error(f"""
+        ⚠️ **Dataset files not found!**
+        
+        Missing file: {e.filename}
+        
+        **Required files in repository:**
+        - data_numeric.npz (12.75 MB)
+        - data_categorical.npz (1.57 MB)
+        - data_metadata.json
+        - category_mappings.json
+        
+        **Setup Instructions:**
+        1. Ensure all NPZ files are committed to your GitHub repository
+        2. Verify files are in the root directory with app.py
+        3. Redeploy on Streamlit Cloud
+        """)
+        st.stop()
+        
     except Exception as e:
         st.error(f"⚠️ Error loading data: {e}")
         st.info("""
         **Troubleshooting:**
         1. Ensure data files are in the same directory as app.py
-        2. Check that all required files exist
-        3. Try running: python test_npy_load.py
+        2. Check that all 4 required files exist in the repository
+        3. Verify file names match exactly (case-sensitive)
+        4. Try redeploying on Streamlit Cloud
         """)
         st.stop()
 # Calculate metrics
